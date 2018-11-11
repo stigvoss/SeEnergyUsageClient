@@ -5,7 +5,9 @@
     <LangVersion>7.2</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="AngleSharp" Version="0.9.10"/>
-    <PackageReference Include="AngleSharp.Io" Version="0.3.2"/>
+    <PackageReference Include="AngleSharp" Version="0.9.10" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SeClient\SeClient.csproj" />
   </ItemGroup>
 </Project>
