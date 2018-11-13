@@ -31,6 +31,16 @@ namespace SelfService
             string baseSelfServiceAddress = "https://www.se.dk",
             string baseApiAddress = "https://webtools3.se.dk")
         {
+            if (string.IsNullOrWhiteSpace(userName))
+            {
+                throw new ArgumentException("Parameter is null or empty.", nameof(userName));
+            }
+
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                throw new ArgumentException("Parameter is null or empty.", nameof(password));
+            }
+
             _baseSelfServiceUrl = new Uri(baseSelfServiceAddress);
             _baseApiUrl = new Uri(baseApiAddress);
 
