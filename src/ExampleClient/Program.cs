@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using SelfService;
 
-namespace SeEnergyReporting
+namespace ExampleClient
 {
     class Program
     {
