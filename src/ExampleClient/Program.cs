@@ -26,7 +26,7 @@ namespace ExampleClient
 
                     var from = new DateTime(2018, 10, 1);
                     var to = from.AddMonths(1);
-                    var period = TimePeriods.PeriodType.Days;
+                    var period = TimePeriod.Days;
 
                     var customers = await client.CustomersAsync();
 
