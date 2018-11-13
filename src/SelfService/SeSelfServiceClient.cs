@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -7,10 +8,11 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using AngleSharp.Dom.Html;
 using AngleSharp.Parser.Html;
+using Newtonsoft.Json;
 
-namespace SeClient
+namespace SelfService
 {
-    public class EnergyUsage : IDisposable
+    public class SeSelfServiceClient : IDisposable
     {
         private readonly HttpClientHandler _handler;
         private readonly HttpClient _client;
@@ -21,13 +23,13 @@ namespace SeClient
         public string UserName { get; }
         public string Password { get; }
 
-        public EnergyUsage(
+        public bool IsAuthenticated { get; private set; } = false;
+
+        public SeSelfServiceClient(
             string userName,
             string password,
-            string customerId, // 483477
-            string siteId, // 44571359
-            string baseSelfServiceAddress = "https://www.se.dk/minside",
-            string baseApiAddress = "https://webtools3.se.dk/wts")
+            string baseSelfServiceAddress = "https://www.se.dk",
+            string baseApiAddress = "https://webtools3.se.dk")
         {
             _baseSelfServiceUrl = new Uri(baseSelfServiceAddress);
             _baseApiUrl = new Uri(baseApiAddress);
@@ -44,8 +46,8 @@ namespace SeClient
 
         public async Task OpenAsync()
         {
-            var loginUrl = new Uri(_baseSelfServiceUrl, "/login?returnUrl=%2Fminside");
-            var usageUrl = new Uri(_baseSelfServiceUrl, "/energiforbrug/forbrugsvisning");
+            var loginUrl = new Uri(_baseSelfServiceUrl, "/minside/login?returnUrl=%2Fminside");
+            var usageUrl = new Uri(_baseSelfServiceUrl, "/minside/energiforbrug/forbrugsvisning");
 
             var loginResult = await _client.GetStringAsync(loginUrl.AbsoluteUri);
             var loginDom = await _html.ParseAsync(loginResult);
@@ -54,35 +56,114 @@ namespace SeClient
 
             var authenticationBody = EncodeAuthentication(token, UserName, Password);
 
+            await _client.PostAsync(loginUrl, authenticationBody);
+
             var usageResult = await _client.GetStringAsync(usageUrl.AbsoluteUri);
             var usageDom = await _html.ParseAsync(usageResult);
 
             var sessionId = ReadSessionIdFrom(usageDom);
 
             AddClientAuthenticationHeaders(sessionId);
+
+            IsAuthenticated = true;
         }
 
-        public async Task<object> DownloadUsageAsync()
+        public async Task<IEnumerable<TimePeriodUsage>> UsageAsync(
+            string customerId,
+            string siteId,
+            DateTime start,
+            DateTime end,
+            TimePeriods.PeriodType period = TimePeriods.PeriodType.Default)
         {
-            var url = new Uri(_baseApiUrl, "/seriesData");
-            
-            var requestBody = EncodeUsageRequest();
+            var url = new Uri(_baseApiUrl, "/wts/seriesData");
 
-            var apiResult = await _client.PostAsync(_baseApiUrl.AbsoluteUri, requestBody);
-            
+            var result = await ApiRequestFrom(url,
+                () => EncodeUsageRequest(customerId, siteId, start, end, period),
+                new []
+                {
+                    new
+                    {
+                        datapoints = new TimePeriodUsage[0]
+                    }
+                }
+            );
+
+            return result.FirstOrDefault()?.datapoints;
         }
 
-        private FormUrlEncodedContent EncodeUsageRequest()
+        public async Task<IEnumerable<Customer>> CustomersAsync()
         {
+            var url = new Uri(_baseSelfServiceUrl, "/scom/api/mypage/contactdata?numAddresses=10");
+
+            var result = await ApiRequestFrom(url, null,
+                new
+                {
+                    Customers = new Customer[0]
+                }
+            );
+
+            return result.Customers;
+        }
+
+        private async Task<T> ApiRequestFrom<T>(
+            Uri url,
+            Func<FormUrlEncodedContent> encodeBody,
+            T anonymousType = null)
+        where T : class
+        {
+            if (!IsAuthenticated)
+            {
+                throw new Exception("The connection has not been opened.");
+            }
+
+            string content;
+            if (encodeBody is object)
+            {
+                var requestBody = encodeBody();
+                var apiResult = await _client.PostAsync(url.AbsoluteUri, requestBody);
+                content = await apiResult?.Content?.ReadAsStringAsync();
+            }
+            else
+            {
+                content = await _client.GetStringAsync(url.AbsoluteUri);
+            }
+
+            if (anonymousType is object)
+            {
+                return JsonConvert.DeserializeAnonymousType(content, anonymousType);
+            }
+            else
+            {
+                return JsonConvert.DeserializeObject<T>(content);
+            }
+        }
+
+        private FormUrlEncodedContent EncodeUsageRequest(
+            string customerId,
+            string siteId,
+            DateTime from,
+            DateTime to,
+            TimePeriods.PeriodType periodType)
+        {
+            var fromAsUnix = UnixTimeStampFrom(from);
+            var toAsUnix = UnixTimeStampFrom(to);
+
+            var zoomLevel = TimePeriods.GetStringFrom(periodType);
+
             return new FormUrlEncodedContent(new Dictionary<string, string>
-            { { "itemId", "SYDEN$483477$44571359$2" },
+            { { "itemId", $"SYDEN${customerId}${siteId}$2" },
                 { "itemCategory", "SonWinMeter" },
-                { "start", "1483225200000" },
-                { "end", "1514761200000" },
-                { "series[0][seriesId]", "SYDEN$483477$44571359$2$usageConsumption$PurchaseFromNet$Energy" },
+                { "start", $"{fromAsUnix}" },
+                { "end", $"{toAsUnix}" },
+                { "series[0][seriesId]", $"SYDEN${customerId}${siteId}$2$usageConsumption$PurchaseFromNet$Energy" },
                 { "series[0][prescaleUnitId]", "kilo@energy_watt" },
-                { "series[0][zoomLevelId]", "year_by_months" },
+                { "series[0][zoomLevelId]", zoomLevel },
             });
+        }
+
+        private double UnixTimeStampFrom(DateTime time)
+        {
+            return (time - new DateTime(1970, 1, 1)).TotalMilliseconds;
         }
 
         private void AddClientAuthenticationHeaders(string sessionId)
@@ -133,7 +214,7 @@ namespace SeClient
 
             if (tokenElement is object)
             {
-                var valueAttribute = tokenElement.Attributes.FirstOrDefault(e => e.Name == "Value");
+                var valueAttribute = tokenElement.Attributes.FirstOrDefault(e => e.Name.ToLower() == "value");
                 return valueAttribute?.Value;
             }
 

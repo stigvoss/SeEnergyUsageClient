@@ -8,6 +8,6 @@
     <PackageReference Include="AngleSharp" Version="0.9.10" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\SeClient\SeClient.csproj" />
+    <ProjectReference Include="..\SelfService\SelfService.csproj" />
   </ItemGroup>
 </Project>
