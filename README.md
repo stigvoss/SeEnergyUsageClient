@@ -1,4 +1,4 @@
-# SeEnergyUsageClient
+# Syd Energi Self-Service Client
 Client for self-service APIs of danish Syd Energi.
 
 # Usage
