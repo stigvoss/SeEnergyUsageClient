@@ -1,5 +1,5 @@
 # SeEnergyUsageClient
-Client for energy usage API of danish Syd Energi
+Client for self-service APIs of danish Syd Energi.
 
 # Usage
 
