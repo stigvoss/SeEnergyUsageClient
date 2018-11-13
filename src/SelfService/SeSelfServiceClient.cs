@@ -83,7 +83,7 @@ namespace SelfService
             string siteId,
             DateTime start,
             DateTime end,
-            TimePeriods.PeriodType period = TimePeriods.PeriodType.Default)
+            TimePeriod period = TimePeriod.Default)
         {
             var url = new Uri(_baseApiUrl, "/wts/seriesData");
 
@@ -153,7 +153,7 @@ namespace SelfService
             string siteId,
             DateTime from,
             DateTime to,
-            TimePeriods.PeriodType periodType)
+            TimePeriod periodType)
         {
             var fromAsUnix = UnixTimeStampFrom(from);
             var toAsUnix = UnixTimeStampFrom(to);
