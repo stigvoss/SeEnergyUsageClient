@@ -85,9 +85,9 @@ namespace SelfService
             DateTime end,
             TimePeriod period = TimePeriod.Default)
         {
-            var url = new Uri(_baseApiUrl, "/wts/seriesData");
+            var apiUrl = new Uri(_baseApiUrl, "/wts/seriesData");
 
-            var result = await ApiRequestFrom(url,
+            var result = await ApiRequestFrom(apiUrl,
                 () => EncodeUsageRequest(customerId, siteId, start, end, period),
                 new []
                 {
@@ -103,9 +103,9 @@ namespace SelfService
 
         public async Task<IEnumerable<Customer>> CustomersAsync()
         {
-            var url = new Uri(_baseSelfServiceUrl, "/scom/api/mypage/contactdata?numAddresses=10");
+            var customerApiUrl = new Uri(_baseSelfServiceUrl, "/scom/api/mypage/contactdata?numAddresses=10");
 
-            var result = await ApiRequestFrom(url, null,
+            var result = await ApiRequestFrom(customerApiUrl, null,
                 new
                 {
                     Customers = new Customer[0]
@@ -153,12 +153,12 @@ namespace SelfService
             string siteId,
             DateTime from,
             DateTime to,
-            TimePeriod periodType)
+            TimePeriod timePeriod)
         {
             var fromAsUnix = UnixTimeStampFrom(from);
             var toAsUnix = UnixTimeStampFrom(to);
 
-            var zoomLevel = TimePeriods.GetStringFrom(periodType);
+            var zoomLevel = TimePeriods.GetPeriodStringFrom(timePeriod);
 
             return new FormUrlEncodedContent(new Dictionary<string, string>
             { { "itemId", $"SYDEN${customerId}${siteId}$2" },

@@ -22,7 +22,7 @@ namespace SelfService
             { TimePeriod.Quarters, "year_by_quarters" },
         };
 
-        public static string GetStringFrom(TimePeriod periodType)
+        public static string GetPeriodStringFrom(TimePeriod periodType)
         {
             return _mapping[periodType];
         }
